@@ -43,6 +43,11 @@ lark.LarkManager.Instance.TaskId
 首先设置代理
 
 ```cs
+// TaskStatus 通过监听 task 状态获取客户端连接情况。
+// 在应用使用预启动功能时，应用保持长开启状态，当有客户端连接的时候
+// Task 状态发生变化。
+// status true:客户端连接 false:客户端断开
+public delegate void OnTaskStatus(bool status, string taskId);
 // 连接数据通道成功
 public delegate void OnConnected();
 // 收到文本消息
@@ -57,13 +62,14 @@ public delegate void OnClose(ErrorCode code);
 
 ```cs
 lark.LarkManager larkManager = lark.LarkManager.Instance;
+larkManager.DataChannel.onTaskStatus += OnTaskStatus;
 larkManager.DataChannel.onConnected += OnConnected;
 larkManager.DataChannel.onText += OnTextMessage;
 larkManager.DataChannel.onBinary += OnBinaryMessaeg;
 larkManager.DataChannel.onClose += OnClose;
 ```
 
-开始连接. LarkManger 会自动从命令行最后一位读取 TaskId，调用开始连接接口
+开始连接
 
 ```cs
 lark.DataChannelNativeApi.ApiRestult restult = lark.LarkManager.Instance.StartConnect();
@@ -115,14 +121,3 @@ Demo 场景封装了基本使用流程，可配合 Web 客户端 Demo 一起使�
 
 ![upload](./doc-assets/release_4.jpg)
 
-填写基本信息，并打开高级设置选项
-
-![upload](./doc-assets/release_5.jpg)
-
-接口调用是否附加参数选择*是*。
-
-> 注意着一步如果不选择的应用里无法获取 TaskID，没法启动数据通道服务
-
-![upload](./doc-assets/release_6.jpg)
-
-点击保存上传完成。

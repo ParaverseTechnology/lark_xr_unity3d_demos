@@ -5,9 +5,15 @@ using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
 
-namespace lark { 
+namespace lark
+{
     public class DataChannelNativeApi : MonoBehaviour
     {
+        // TaskStatus 通过监听 task 状态获取客户端连接情况。
+        // 在应用使用预启动功能时，应用保持长开启状态，当有客户端连接的时候
+        // Task 状态发生变化。
+        // status true:客户端连接 false:客户端断开
+        public delegate void OnTaskStatus(bool status, string taskId);
         // 连接数据通道成功
         public delegate void OnConnected();
         // 收到文本消息
@@ -52,6 +58,7 @@ namespace lark {
 
         DataChannelNativeApi()
         {
+            cs_on_taskstatus = c_on_taskstatus;
             cs_on_connected = c_on_connected;
             cs_on_data = c_on_data;
             cs_on_disconnected = c_on_disconnected;
@@ -80,6 +87,8 @@ namespace lark {
         #endregion
 
         #region apis
+        // Task 状态变化
+        public OnTaskStatus onTaskStatus;
         // 通道连接成功代理
         public OnConnected onConnected;
         // 文本消息代理
@@ -88,6 +97,20 @@ namespace lark {
         public OnBinaryMessaeg onBinary;
         // 通道关闭代理
         public OnClose onClose;
+
+        //************************************
+        // Method:    lr_client_register_getTaskId_callback
+        // FullName:  lr_client_register_getTaskId_callback
+        // Access:    public 
+        // Returns:   LARKXR_API void DC_CALL
+        // Qualifier: 应用通过此回调接口获取客户单连接状态以及taskid
+        // Parameter: on_taskid get_task
+        // Parameter: void * user_data
+        //************************************
+        public void RegisterTaskstatusCallback()
+        {
+            lr_client_register_taskstatus_callback(cs_on_taskstatus, IntPtr.Zero);
+        }
         /// <summary>
         /// 开始连接数据通道。 
         /// </summary>
@@ -96,7 +119,7 @@ namespace lark {
         public ApiRestult StartConnect(string taskId)
         {
             Debug.Log("start connect taskId " + taskId);
-            ApiRestult res = (ApiRestult)lr_client_start(taskId, cs_on_connected, cs_on_data, cs_on_disconnected);
+            ApiRestult res = (ApiRestult)lr_client_start(taskId, cs_on_connected, cs_on_data, cs_on_disconnected, IntPtr.Zero);
             return res;
         }
         /// <summary>
@@ -139,40 +162,55 @@ namespace lark {
 
         #region native callbacks
         // callbacks
-        private delegate void on_connected();
-        private delegate void on_data(int type, IntPtr data, int size);
-        private delegate void on_disconnected(int code);
+        private delegate void on_taskstatus(bool status/*true:客户端连接 false:客户端断开*/, string taskId, IntPtr user_data);
+        private delegate void on_connected(IntPtr user_data);
+        private delegate void on_data(int type, IntPtr data, int size, IntPtr user_data);
+        private delegate void on_disconnected(int code, IntPtr user_data);
 
+        private on_taskstatus cs_on_taskstatus;
         private on_connected cs_on_connected;
         private on_data cs_on_data;
         private on_disconnected cs_on_disconnected;
 
-        private void c_on_connected()
+        private void c_on_taskstatus(bool status/*true:客户端连接 false:客户端断开*/, string taskId, IntPtr user_data)
+        {
+            ScheduleTask(new GUITask(delegate {
+                onTaskStatus?.Invoke(status, taskId);
+            }));
+        }
+
+        private void c_on_connected(IntPtr user_data)
         {
             Debug.Log("on connected");
             ScheduleTask(new GUITask(delegate {
                 onConnected?.Invoke();
             }));
         }
-        private void c_on_data(int type, IntPtr data, int size)
+        private void c_on_data(int type, IntPtr data, int size, IntPtr user_data)
         {
             byte[] array = new byte[size];
 
             Marshal.Copy(data, array, 0, size);
-            
-            if ((DataType)type == DataType.DATA_STRING) {
+
+            if ((DataType)type == DataType.DATA_STRING)
+            {
+                // Debug.Log("c_on_data len" + size + " array " + string.Join(" ", array));
                 // End with 0
-                string strMsg = Encoding.UTF8.GetString(array, 0, size > 0 ? size - 1 : size);
+                // string strMsg = Encoding.UTF8.GetString(array, 0, size > 0 ? size - 1 : size);
+                // update 20211018
+                string strMsg = Encoding.UTF8.GetString(array, 0, size);
                 ScheduleTask(new GUITask(delegate {
                     onText?.Invoke(strMsg);
                 }));
-            } else {
+            }
+            else
+            {
                 ScheduleTask(new GUITask(delegate {
                     onBinary?.Invoke(array);
                 }));
             }
         }
-        private void c_on_disconnected(int code)
+        private void c_on_disconnected(int code, IntPtr user_data)
         {
             Debug.Log("on disconnected " + code);
             ScheduleTask(new GUITask(delegate {
@@ -182,9 +220,11 @@ namespace lark {
         #endregion
 
         #region native LarkXRDataChannel.h
+        [DllImport("LarkXRDataChannel64")]
+        private static extern void lr_client_register_taskstatus_callback(on_taskstatus taskstatus, IntPtr user_data);
         // 异步连接LarkXR服务端,必须传入回调函数，返回XR_ERROR_SUCCESS代表接口创建成功
         [DllImport("LarkXRDataChannel64")]
-        private static extern int lr_client_start(string taskId, on_connected cb_connected, on_data cb_data, on_disconnected cb_disconnected);
+        private static extern int lr_client_start(string taskId, on_connected cb_connected, on_data cb_data, on_disconnected cb_disconnected, IntPtr user_data);
         [DllImport("LarkXRDataChannel64")]
         private static extern int lr_client_send(int dataType, ref byte data, int size);
         [DllImport("LarkXRDataChannel64")]

@@ -7,8 +7,5 @@ EditorBuildSettings:
   m_Scenes:
   - enabled: 1
     path: Assets/Lark/Scenes/Demo.unity
-    guid: 66ac87b37dec9774f97f3e8f4560b011
-  - enabled: 0
-    path: Assets/Lark/Scenes/Demo_Camera.unity
-    guid: a95a6e70c8b15604eb540ee79c5e6fa7
+    guid: 480b9f012409cac4e96613f8e13141e6
   m_configObjects: {}

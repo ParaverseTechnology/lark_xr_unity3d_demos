@@ -21,9 +21,9 @@ extern "C" {
 #define DC_CALL __stdcall
 
 #define LARKXR_DC_VERSION_MAJOR			3
-#define LARKXR_DC_VERSION_MINOR			1
-#define LARKXR_DC_VERSION_REVISE		3
-#define LARKXR_DC_VERSION_BUILD			1
+#define LARKXR_DC_VERSION_MINOR			2
+#define LARKXR_DC_VERSION_REVISE		0
+#define LARKXR_DC_VERSION_BUILD			0
 
 
 
@@ -38,9 +38,9 @@ extern "C" {
 		DATA_BIN		= 1,
 	};
 
-	typedef void(*on_connected)();
+	typedef void(*on_dc_connected)(void* user_data);
 
-	typedef void(*on_data)(enum data_type type, const char* data,int size);
+	typedef void(*on_dc_data)(enum data_type type, const char* data,int size,void* user_data);
 
 	enum ErrorCode
 	{
@@ -48,7 +48,21 @@ extern "C" {
 		ERROR_DC_UNSUPPORTED			= 1,	//服务端授权不支持DataChannel
 		ERROR_SERVER_CONNECTION_FAILED	= 2,	//无法链接服务器或者与服务器握手失败(检查taskid传递是否正确)
 	};
-	typedef void(*on_disconnected)(enum ErrorCode code);
+	typedef void(*on_dc_disconnected)(enum ErrorCode code,void* user_data);
+	//-----------------------------------------
+	typedef void(*on_taskstatus)(bool status/*true:客户端连接 false:客户端断开*/,const char* taskId, void* user_data);
+
+
+	//************************************
+	// Method:    lr_client_register_getTaskId_callback
+	// FullName:  lr_client_register_getTaskId_callback
+	// Access:    public 
+	// Returns:   LARKXR_API void DC_CALL
+	// Qualifier: 应用通过此回调接口获取客户单连接状态以及taskid
+	// Parameter: on_taskid get_task
+	// Parameter: void * user_data
+	//************************************
+	LARKXR_API void DC_CALL lr_client_register_taskstatus_callback(on_taskstatus taskstatus,void* user_data = NULL);
 
 	//************************************
 	// Method:    lr_client_start
@@ -56,13 +70,14 @@ extern "C" {
 	// Access:    public 
 	// Returns:   LARKXR_API int DC_CALL
 	// Qualifier: 异步连接LarkXR服务端,必须传入回调函数，返回XR_ERROR_SUCCESS代表接口创建成功
-	// Parameter: const char * taskid
+	// Parameter: const char * taskid(如果无法从命令行获取taskid，请直接传NULL)
 	// Parameter: on_connected cb_connected
 	// Parameter: on_data cb_data
 	// Parameter: on_disconnected cb_disconnected
-	//************************************
-	LARKXR_API int  DC_CALL lr_client_start(const char* taskid, on_connected cb_connected,on_data cb_data,on_disconnected cb_disconnected);
+	// Parameter: void* user_data
 
+	//************************************
+	LARKXR_API int  DC_CALL lr_client_start(const char* taskid, on_dc_connected cb_connected,on_dc_data cb_data,on_dc_disconnected cb_disconnected,void* user_data = NULL);
 	//************************************
 	// Method:    lr_client_send
 	// FullName:  lr_client_send
@@ -70,7 +85,7 @@ extern "C" {
 	// Returns:   LARKXR_API int			[if send success  ret = input size]
 	// Qualifier: send data to server		[utf8 string or binary data]
 	// Parameter: const char * data			[send data]
-	// Parameter: int size					[send data size]
+	// Parameter: int size					[send data size,in vr mode ,the max size is 1388 byte] 
 	//************************************
 	LARKXR_API int DC_CALL lr_client_send(enum data_type type, const char* data, size_t size);
 

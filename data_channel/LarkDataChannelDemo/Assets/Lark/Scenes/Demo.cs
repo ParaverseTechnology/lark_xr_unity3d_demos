@@ -1,3 +1,4 @@
+using lark;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,6 +15,13 @@ public class Demo : MonoBehaviour
     public List<Camera> cameras;
     public List<GameObject> objects;
 
+    public float sensitivityMouse = 2f;
+    public float sensitivetyKeyBoard = 0.1f;
+    public float sensitivetyMouseWheel = 10f;
+
+    private GetTaskInfo getTaskInfo = new GetTaskInfo();
+    private GetExtraParams getExtraParams = new GetExtraParams();
+
     // Start is called before the first frame update
     void Start()
     {
@@ -22,12 +30,12 @@ public class Demo : MonoBehaviour
         Debug.Assert(sendInput != null);
         Debug.Assert(receiveText != null);
 
-        // 请在云雀后台上传应用时设置《接口调用是否附加参数》为<<是>>
-        // 附加参数 taskId 将以传递给命令行最后一位
-        // 如果 taskId 未设置或不正确将无法连接数据通道
+        // 异步获取。
+        // 注意添加 DataChannelNativeApi onTaskStatus 代理
         taskIdText.text += lark.LarkManager.Instance.TaskId;
 
         lark.LarkManager larkManager = lark.LarkManager.Instance;
+        larkManager.DataChannel.onTaskStatus += OnTaskStatus;
         larkManager.DataChannel.onConnected += OnConnected;
         larkManager.DataChannel.onText += OnTextMessage;
         larkManager.DataChannel.onBinary += OnBinaryMessaeg;
@@ -51,7 +59,30 @@ public class Demo : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        UpdateCamera();
+    }
+
+    private void UpdateCamera()
+    {
+        // 滚轮实现镜头缩进和拉远
+        if (Input.GetAxis("Mouse ScrollWheel") != 0)
+        {
+            // Camera.main.fieldOfView = Camera.main.fieldOfView - Input.GetAxis("Mouse ScrollWheel") * sensitivetyMouseWheel;
+        }
+        // 按着鼠标左键实现视角转动
+        if (Input.GetMouseButton(0))
+        {
+            Camera.main.transform.Rotate(0, Input.GetAxis("Mouse X") * sensitivityMouse, 0);
+        }
+        // 键盘按钮←/a和→/d实现视角水平移动，键盘按钮↑/w和↓/s实现视角水平旋转
+        if (Input.GetAxis("Horizontal") != 0)
+        {
+            Camera.main.transform.Translate(Input.GetAxis("Horizontal") * sensitivetyKeyBoard, 0, 0);
+        }
+        if (Input.GetAxis("Vertical") != 0)
+        {
+            Camera.main.transform.Translate(0, 0, Input.GetAxis("Vertical") * sensitivetyKeyBoard);
+        }
     }
 
     public void Send()
@@ -72,6 +103,45 @@ public class Demo : MonoBehaviour
             }
         }
     }
+
+
+    #region call api
+    public void GetTaskInfo()
+    {
+        StartCoroutine("GetTaskInfoCoroutine");
+    }
+
+    public void GetExraParams()
+    {
+        StartCoroutine("GetExraParamsCoroutine");
+    }
+
+    private IEnumerator GetTaskInfoCoroutine()
+    {
+        yield return getTaskInfo.Send(lark.LarkManager.Instance.TaskId);
+        if (getTaskInfo.IsResultSuccess) {
+            receiveText.text = getTaskInfo.taskInfo.ToString();
+        }
+        else
+        {
+            receiveText.text = getTaskInfo.Error;
+        }
+        
+    }
+
+    private IEnumerator GetExraParamsCoroutine()
+    {
+        yield return getExtraParams.Send(lark.LarkManager.Instance.TaskId);
+        if (getExtraParams.IsResultSuccess) {
+            receiveText.text = getExtraParams.extraParams;
+        }
+        else
+        {
+            receiveText.text = getExtraParams.Error;
+        }
+    }
+
+    #endregion
 
     #region cmd
     private void SwitchCamera(int index)
@@ -182,6 +252,17 @@ public class Demo : MonoBehaviour
     #endregion
 
     #region callbacks
+    public void OnTaskStatus(bool status, string taskId) {
+        Debug.Log("on task status change " + status + " "  +taskId);
+        taskIdText.text = "收到 TaskID " + taskId + " 是否开启状态 " + status;
+        if (!status) {
+            Debug.Log("task 关闭，恢复初始状态");
+            // default carmera 0
+            SwitchCamera(0);
+            // default hide object 0
+            ToggleGameObject(0);
+        }
+    }
     public void OnConnected()
     {
         statusText.text = "连接成功";

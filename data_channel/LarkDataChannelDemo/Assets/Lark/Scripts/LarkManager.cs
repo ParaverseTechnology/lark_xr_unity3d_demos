@@ -9,9 +9,8 @@ namespace lark {
     {
         const string OBJ_NAME = "LarkManager";
 
-        // 请在云雀后台上传应用时设置《接口调用是否附加参数》为<<是>>
-        // 附加参数 taskId 将以传递给命令行最后一位
-        // 如果 taskId 未设置或不正确将无法连接数据通道
+        // 异步获取。
+        // 添加 DataChannelNativeApi onTaskStatus 代理
         public string TaskId { get; private set; } = "";
 
         private static LarkManager larkManager = null;
@@ -47,19 +46,15 @@ namespace lark {
                 DataChannel = gameObject.AddComponent<DataChannelNativeApi>();
             }
 
-            // 请在云雀后台上传应用时设置《接口调用是否附加参数》为<<是>>
-            // 附加参数 taskId 将以传递给命令行最后一位
-            // 如果 taskId 未设置或不正确将无法连接数据通道
             try
             {
 #if UNITY_EDITOR
                 // 编辑器内使用测试 TaskID
                 TaskId = "123456";
 #else
-                long taskNumber = long.Parse(Environment.GetCommandLineArgs().Last());
-                TaskId = Environment.GetCommandLineArgs().Last();
+                DataChannel.RegisterTaskstatusCallback();
+                DataChannel.onTaskStatus += OnTaskStatus;
 #endif
-                
             }
             catch (Exception e) {
                 Debug.LogError("检测到taskID格式不正确，请在云雀后台设置使用附加参数 " + e.Message);
@@ -114,5 +109,13 @@ namespace lark {
         public DataChannelNativeApi.ApiRestult Send(byte[] binary) {
             return DataChannel.Send(binary);
         }
+
+        #region callback
+        public void OnTaskStatus(bool status, string taskId)
+        {
+            Debug.Log("on task status change. " + status + " " + taskId);
+            TaskId = taskId;
+        }
+        #endregion
     }
 }
