@@ -58,6 +58,10 @@ public delegate void OnTextMessage(string msg);
 public delegate void OnBinaryMessaeg(byte[] binary);
 // 数据通道关闭
 public delegate void OnClose(ErrorCode code);
+// 收到智能语音 url 形式播放结果, url 为 mp3 连接
+public delegate void OnAiVoiceURL(AiVoiceURL aiVoiceURL);
+// 收到智能语音流式播放结果, pcm 数据
+public delegate void OnAiVoiceStream(AiVoiceStream aiVoiceStream);
 ```
 
 通过 LarkManeger 实例获取 DataChannelNativeApi 实例并设置代理
@@ -123,3 +127,71 @@ Demo 场景封装了基本使用流程，可配合 Web 客户端 Demo 一起使�
 
 ![upload](./doc-assets/release_4.jpg)
 
+
+### 智能语音功能
+
+> 网页端智能语音输入 Demo 参考:https://github.com/pingxingyun/vh-webclient
+
+> Lark Plugin 文件夹下保护一个 naudio 库，用于 Demo 场景中播放 mp3
+
+#### StartAiVoice
+
+如果使用智能语音服务器，应在 StartConnect 返回成功后启用智能语音连接
+
+```cs
+lark.LarkManager.Instance.StartAiVoice();
+```
+
+#### 智能语音相关回调
+
+```cs
+larkManager.DataChannel.onAiVoiceURL += OnAiVoiceURL;
+larkManager.DataChannel.onAiVoiceStream += OnAiVoiceStream;
+```
+
+#### Demo 场景
+
+Demo 场景中使用 naudio 库播放 mp3 URL。
+
+```cs
+// 开启使用 naudio 播放 mp3
+#define ENABLE_NAUDIO
+```
+
+下载并使用 naudio 播放智能语音返回的 mp3 url
+
+```cs
+IEnumerator GetAudioClip(string url)
+{
+    UnityWebRequest www = UnityWebRequest.Get(url);
+    yield return www.SendWebRequest();
+
+    if (www.isNetworkError || www.isHttpError)
+    {
+        Debug.Log(www.error);
+    }
+    else
+    {
+#if ENABLE_NAUDIO
+        byte[] results = www.downloadHandler.data;
+
+        // 使用 NAudio 将 mp3 转换为 wave 播放
+        using (var stream = new MemoryStream(results)) { 
+            var reader = new Mp3FileReader(stream);
+            var wo = new WaveOutEvent();
+            wo.Init(reader);
+            wo.Play();
+            while (wo.PlaybackState == PlaybackState.Playing)
+            {
+                yield return new WaitForSeconds(1);
+            }
+        }
+#endif
+    }
+}
+```
+
+#### 打包发布
+
+1. 服务器应确认有智能语音授权
+2. 在 LarkXR `后台应用管理`-`通用高级设置`-`智能语音` 选择 `是`

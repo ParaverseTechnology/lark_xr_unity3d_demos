@@ -12,7 +12,7 @@ extern "C" {
 #endif
 #include <stddef.h>
 #include <stdint.h>
-
+#include <stdbool.h>
 #ifdef LARKXR_EXPORTS
 #define LARKXR_API __declspec(dllexport)
 #else
@@ -22,16 +22,17 @@ extern "C" {
 
 #define LARKXR_DC_VERSION_MAJOR			3
 #define LARKXR_DC_VERSION_MINOR			2
-#define LARKXR_DC_VERSION_REVISE		0
-#define LARKXR_DC_VERSION_BUILD			0
+#define LARKXR_DC_VERSION_REVISE		3
+#define LARKXR_DC_VERSION_BUILD			1
 
-
+#define LARKXR_DC_VERSION "3.2.3.1"
 
 #define XR_SUCCESS					   0
 #define XR_ERROR_INTERFACE_FAILED	  (XR_SUCCESS-1)
 #define XR_ERROR_SERVER_UNSUPPORT	  (XR_SUCCESS-2)
 #define XR_ERROR_PARAM				  (XR_SUCCESS-3)
 #define XR_ERROR_OPREATION			  (XR_SUCCESS-4)
+
 	enum data_type
 	{
 		DATA_STRING		= 0,
@@ -48,7 +49,7 @@ extern "C" {
 		ERROR_DC_UNSUPPORTED			= 1,	//服务端授权不支持DataChannel
 		ERROR_SERVER_CONNECTION_FAILED	= 2,	//无法链接服务器或者与服务器握手失败(检查taskid传递是否正确)
 	};
-	typedef void(*on_dc_disconnected)(enum ErrorCode code,void* user_data);
+	typedef void(*on_dc_error)(enum ErrorCode code,void* user_data);
 	//-----------------------------------------
 	typedef void(*on_taskstatus)(bool status/*true:客户端连接 false:客户端断开*/,const char* taskId, void* user_data);
 
@@ -62,7 +63,7 @@ extern "C" {
 	// Parameter: on_taskid get_task
 	// Parameter: void * user_data
 	//************************************
-	LARKXR_API void DC_CALL lr_client_register_taskstatus_callback(on_taskstatus taskstatus,void* user_data = NULL);
+	LARKXR_API void DC_CALL lr_client_register_taskstatus_callback(on_taskstatus taskstatus,void* user_data);
 
 	//************************************
 	// Method:    lr_client_start
@@ -77,7 +78,7 @@ extern "C" {
 	// Parameter: void* user_data
 
 	//************************************
-	LARKXR_API int  DC_CALL lr_client_start(const char* taskid, on_dc_connected cb_connected,on_dc_data cb_data,on_dc_disconnected cb_disconnected,void* user_data = NULL);
+	LARKXR_API int  DC_CALL lr_client_start(const char* taskid, on_dc_connected cb_connected,on_dc_data cb_data,on_dc_error cb_disconnected,void* user_data);
 	//************************************
 	// Method:    lr_client_send
 	// FullName:  lr_client_send

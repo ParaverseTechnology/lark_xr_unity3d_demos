@@ -1,8 +1,16 @@
+#define ENABLE_NAUDIO
+
 using lark;
+// 是否使用 Naudio 加载MP3
+#if ENABLE_NAUDIO
+using NAudio.Wave;
+#endif
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 
 public class Demo : MonoBehaviour
@@ -18,6 +26,9 @@ public class Demo : MonoBehaviour
     public float sensitivityMouse = 2f;
     public float sensitivetyKeyBoard = 0.1f;
     public float sensitivetyMouseWheel = 10f;
+
+    // 是否支持智能语音服务
+    public bool supportAiVoice = true;
 
     private GetTaskInfo getTaskInfo = new GetTaskInfo();
     private GetExtraParams getExtraParams = new GetExtraParams();
@@ -40,10 +51,32 @@ public class Demo : MonoBehaviour
         larkManager.DataChannel.onText += OnTextMessage;
         larkManager.DataChannel.onBinary += OnBinaryMessaeg;
         larkManager.DataChannel.onClose += OnClose;
+        // 智能语音相关回调 
+        larkManager.DataChannel.onAiVoiceURL += OnAiVoiceURL;
+        larkManager.DataChannel.onAiVoiceStream += OnAiVoiceStream;
+
         // start connect
         lark.DataChannelNativeApi.ApiRestult restult = lark.LarkManager.Instance.StartConnect();
 
-        if (restult != lark.DataChannelNativeApi.ApiRestult.XR_SUCCESS)
+        if (restult == lark.DataChannelNativeApi.ApiRestult.XR_SUCCESS)
+        {
+            if (supportAiVoice)
+            {
+                Debug.Log("try start ai voice");
+
+                restult = lark.LarkManager.Instance.StartAiVoice();
+                if (restult != lark.DataChannelNativeApi.ApiRestult.XR_SUCCESS) {
+                    statusText.text = "Start AiVoice Failed. Result " + restult.ToString();
+                } else
+                {
+                    statusText.text = "Start AiVoice Success.";
+                    Debug.Log("start ai voice success");
+                }
+            } else
+            {
+                statusText.text = "Start DataChannel Connect Success.";
+            }
+        } else
         {
             statusText.text = "Start Failed. Result " + restult.ToString();
         }
@@ -126,7 +159,6 @@ public class Demo : MonoBehaviour
         {
             receiveText.text = getTaskInfo.Error;
         }
-        
     }
 
     private IEnumerator GetExraParamsCoroutine()
@@ -284,6 +316,48 @@ public class Demo : MonoBehaviour
     public void OnClose(lark.DataChannelNativeApi.ErrorCode code)
     {
         statusText.text = "通道已关闭 code " + code;
+    }
+    #endregion
+    #region aivoice callback
+    public void OnAiVoiceURL(lark.DataChannelNativeApi.AiVoiceURL aiVoiceURL) {
+        Debug.Log("OnAiVoiceURL " + aiVoiceURL.nlg + " url " + aiVoiceURL.online_url);
+        receiveText.text = "收到智能语音 URL 文本: " + aiVoiceURL.nlg + " ;url " + aiVoiceURL.online_url;
+
+        _ = StartCoroutine(nameof(GetAudioClip), aiVoiceURL.online_url);
+    }
+
+    public void OnAiVoiceStream(lark.DataChannelNativeApi.AiVoiceStream aiVoiceStream) {
+        Debug.Log("OnAiVoiceURL " + aiVoiceStream.nlg);
+        receiveText.text = "收到智能语音 Stream 文本: " + aiVoiceStream.nlg;
+    }
+
+    IEnumerator GetAudioClip(string url)
+    {
+        UnityWebRequest www = UnityWebRequest.Get(url);
+        yield return www.SendWebRequest();
+
+        if (www.isNetworkError || www.isHttpError)
+        {
+            Debug.Log(www.error);
+        }
+        else
+        {
+#if ENABLE_NAUDIO
+            byte[] results = www.downloadHandler.data;
+
+            // 使用 NAudio 将 mp3 转换为 wave 播放
+            using (var stream = new MemoryStream(results)) { 
+                var reader = new Mp3FileReader(stream);
+                var wo = new WaveOutEvent();
+                wo.Init(reader);
+                wo.Play();
+                while (wo.PlaybackState == PlaybackState.Playing)
+                {
+                    yield return new WaitForSeconds(1);
+                }
+            }
+#endif
+        }
     }
     #endregion
 }

@@ -87,6 +87,16 @@ namespace lark {
         }
 
         /// <summary>
+        /// 开启智能语流程
+        /// 调用此函数一定要StartConnect成功，并且回调函数也返回成功后再调用
+        /// </summary>
+        /// <returns></returns>
+        public DataChannelNativeApi.ApiRestult StartAiVoice()
+        {
+            return (DataChannelNativeApi.ApiRestult)DataChannel.RegisterAivoiceCallback();
+        }
+
+        /// <summary>
         /// 主动关闭数据通道
         /// </summary>
         public void Stop()
