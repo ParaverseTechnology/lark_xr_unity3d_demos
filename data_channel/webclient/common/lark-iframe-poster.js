@@ -242,12 +242,14 @@ var lark = (function() {
         function sendToIframe(type, data, message) {
             if (element.contentWindow) {
                 var win = element.contentWindow;
-                win.postMessage({
+                var msg = {
                     prex: "pxymessage", // 约定的消息头部
                     type: type,         // 消息类型
                     data: data,         // 具体数据
                     message: message,   // 附加信息
-                },'*');
+                };
+                win.postMessage(msg,'*');
+                console.log('post message', msg);
             } else {
                 console.warn('content window not find.');
             }
